@@ -9,10 +9,32 @@ When I work on files, the useful thing is evidence. Breadcrumbs records each fil
 Python 3.10 or newer, no extra packages. Run these commands from this folder (use `py -3` instead of `python3` on Windows if needed):
 
 ```bash
-python3 breadcrumbs.py record /path/to/project /path/to/before.json
+python3 breadcrumbs.py record /path/to/project
 # Do some work, then:
+python3 breadcrumbs.py check
+```
+
+By default, the receipt is saved as **receipt.json in the folder where you run the command**. Its full path is printed every time. The JSON is indented plain text: open it in Notepad or any text editor. It remains on disk after checking; checking never replaces or deletes it. Recording prints the saved SHA-256 checksum for every file. Checking prints **both saved and current full SHA-256 checksums**, sizes, and MATCH/CHANGED/ADDED/REMOVED for every file, including unchanged files.
+
+You can still choose an explicit receipt path:
+
+```bash
+python3 breadcrumbs.py record /path/to/project /path/to/before.json
 python3 breadcrumbs.py check /path/to/before.json
 ```
+
+If a receipt already exists, recording refuses to overwrite it. Choose another filename for a new baseline. A receipt.json is included with this download as a baseline for the distributed source files; use `check receipt.json --folder .` from the extracted folder. To make a new baseline, choose a new filename and save it outside the folder being checked, so the original receipt remains unchanged.
+
+## Verify independently
+
+Compare the printed SHA-256 against a separate tool. On Windows PowerShell:
+
+```powershell
+Get-FileHash -Algorithm SHA256 -LiteralPath .\breadcrumbs.py
+Get-Content .\receipt.json
+```
+
+On Linux use `sha256sum breadcrumbs.py`; on macOS use `shasum -a 256 breadcrumbs.py`. Hexadecimal letter case does not affect the hash. Change one file and run check again: the saved checksum stays fixed while the current checksum changes. The path in each output entry is relative to the folder being checked.
 
 To check a copied or extracted folder:
 

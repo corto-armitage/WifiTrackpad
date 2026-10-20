@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "root": ".",
+  "files": {
+    "breadcrumbs.py": {
+      "bytes": 5422,
+      "sha256": "da21a87eaf1440b7ebaedd4d7656ec27716ad8636880a4b6e30acfd6b18218c0"
+    },
+    "README.md": {
+      "bytes": 3543,
+      "sha256": "1356428df6ea7237a70fd1dbcecef49267989a9de44e7698c2a93db59af4b292"
+    },
+    "requirements.txt": {
+      "bytes": 68,
+      "sha256": "4810edce7ff40e05e9e0075402bcf455dac083ffe87c06bf37dc37b22b80d69a"
+    },
+    "test_breadcrumbs.py": {
+      "bytes": 4180,
+      "sha256": "cf1371ccf2a6a65b21b095d970e5efc448ef101febd379e3f87f73370977380e"
+    }
+  },
+  "skipped_links": []
+}

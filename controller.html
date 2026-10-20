@@ -14,19 +14,21 @@ body{font:18px system-ui;background:#101827;color:#eef4ff;max-width:850px;margin
 <script>
 const $=id=>document.getElementById(id), pad=$('pad');
 let token=location.hash.slice(1), active=false, queue=[], busy=false, dragging=false, previous=null;
-history.replaceState(null,'',location.pathname);
+const servedByReceiver=location.protocol==='http:';
+if(servedByReceiver)history.replaceState(null,'',location.pathname);
 const client=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
 function status(text){$('status').textContent=text}
+if(!servedByReceiver){status('Open the complete http://PC-address:8765/#pairing-code address printed by receiver.py. This downloaded HTML file cannot connect directly.');$('connect').disabled=true;$('capture').disabled=true}
 function add(e){if(active){if(queue.length>90){fail('Input queue full. Reconnect.');return}queue.push(e)}}
 function fail(message){active=false;queue=[];dragging=false;$('drag').textContent='Start drag';if(document.pointerLockElement)document.exitPointerLock();status(message)}
 async function flush(){
  if(!active||busy)return;busy=true;const events=queue.splice(0);
  const abort=new AbortController(), timer=setTimeout(()=>abort.abort(),2000);
  try{const r=await fetch('/input',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({client,events}),signal:abort.signal});if(!r.ok)throw Error(r.status===409?'Another laptop is connected.':r.status===401?'Pairing code rejected. Reopen the full receiver address.':'Connection rejected.');status('Connected — controlling PC')}
- catch(e){fail(e.name==='AbortError'?'Connection timed out. Reconnect.':e.message)}finally{clearTimeout(timer);busy=false}
+ catch(e){fail(e.name==='AbortError'||e instanceof TypeError?'Cannot reach the PC receiver. Keep receiver.py running, reopen its latest full HTTP address, and check WiFi, the PC firewall, and browser local-network permission.':e.message)}finally{clearTimeout(timer);busy=false}
 }
 setInterval(flush,25);
-$('connect').onclick=()=>{if(!token)token=prompt('Paste the pairing code (the text after # in the receiver address):')||'';if(!token)return;active=true;status('Connecting…');flush()};
+$('connect').onclick=()=>{if(!servedByReceiver)return;if(!token)token=prompt('Paste the pairing code (the text after # in the receiver address):')||'';if(!token)return;active=true;status('Connecting…');flush()};
 $('capture').onclick=async()=>{if(!active){status('Connect first.');return}try{await pad.requestPointerLock()}catch(e){status('Capture unavailable in this browser. Move over the pad instead.')}};
 $('stop').onclick=async()=>{if(active){add({type:'release'});await flush()}fail('Disconnected')};
 function move(e){if(!active)return;let x=e.movementX,y=e.movementY;if(!document.pointerLockElement){if(previous){x=e.clientX-previous.x;y=e.clientY-previous.y}else{x=0;y=0}previous={x:e.clientX,y:e.clientY}}if(x||y){const speed=Number($('speed').value),last=queue.at(-1);if(last?.type==='move'){last.x+=x*speed;last.y+=y*speed}else add({type:'move',x:x*speed,y:y*speed})}}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiFi Trackpad</title>
+<style>
+body{font:18px system-ui;background:#101827;color:#eef4ff;max-width:850px;margin:40px auto;padding:20px}button,input{font:inherit;padding:14px;border-radius:10px;border:0;margin:5px}button{background:#a6d9ff;color:#102039;cursor:pointer}#pad{height:330px;background:#21334d;border:2px dashed #6390bc;border-radius:20px;display:grid;place-content:center;text-align:center;touch-action:none;user-select:none;margin:20px 0}small{color:#b8cbe2}#status{color:#a6d9ff}label{display:inline-block;margin:15px}input{max-width:180px}
+</style>
+<h1>WiFi Trackpad</h1><p id="status">Ready to connect</p>
+<p>Move over the pad to move the PC cursor. Click or use two fingers to scroll. For continuous movement, try Capture; press Esc to leave capture.</p>
+<button id="connect">Connect</button><button id="capture">Capture cursor</button><button id="stop">Disconnect</button>
+<div id="pad" tabindex="0">Laptop trackpad → PC mouse<br><small>Keep your pointer over this area</small></div>
+<button id="left">Left click</button><button id="right">Right click</button><button id="drag">Start drag</button>
+<label>Speed <input id="speed" type="range" min="0.25" max="3" step="0.05" value="1"></label>
+<p><small>One laptop controls the PC at a time. Lost connections release held buttons within 3 seconds. Close this page or stop the receiver when finished.</small></p>
+<script>
+const $=id=>document.getElementById(id), pad=$('pad');
+let token=location.hash.slice(1), active=false, queue=[], busy=false, dragging=false, previous=null;
+history.replaceState(null,'',location.pathname);
+const client=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
+function status(text){$('status').textContent=text}
+function add(e){if(active){if(queue.length>90){fail('Input queue full. Reconnect.');return}queue.push(e)}}
+function fail(message){active=false;queue=[];dragging=false;$('drag').textContent='Start drag';if(document.pointerLockElement)document.exitPointerLock();status(message)}
+async function flush(){
+ if(!active||busy)return;busy=true;const events=queue.splice(0);
+ const abort=new AbortController(), timer=setTimeout(()=>abort.abort(),2000);
+ try{const r=await fetch('/input',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({client,events}),signal:abort.signal});if(!r.ok)throw Error(r.status===409?'Another laptop is connected.':r.status===401?'Pairing code rejected. Reopen the full receiver address.':'Connection rejected.');status('Connected — controlling PC')}
+ catch(e){fail(e.name==='AbortError'?'Connection timed out. Reconnect.':e.message)}finally{clearTimeout(timer);busy=false}
+}
+setInterval(flush,25);
+$('connect').onclick=()=>{if(!token)token=prompt('Paste the pairing code (the text after # in the receiver address):')||'';if(!token)return;active=true;status('Connecting…');flush()};
+$('capture').onclick=async()=>{if(!active){status('Connect first.');return}try{await pad.requestPointerLock()}catch(e){status('Capture unavailable in this browser. Move over the pad instead.')}};
+$('stop').onclick=async()=>{if(active){add({type:'release'});await flush()}fail('Disconnected')};
+function move(e){if(!active)return;let x=e.movementX,y=e.movementY;if(!document.pointerLockElement){if(previous){x=e.clientX-previous.x;y=e.clientY-previous.y}else{x=0;y=0}previous={x:e.clientX,y:e.clientY}}if(x||y){const speed=Number($('speed').value),last=queue.at(-1);if(last?.type==='move'){last.x+=x*speed;last.y+=y*speed}else add({type:'move',x:x*speed,y:y*speed})}}
+document.addEventListener('mousemove',e=>{if(document.pointerLockElement===pad||e.target===pad)move(e)});
+pad.onmouseleave=()=>{previous=null;if(!dragging)add({type:'release'})};
+document.addEventListener('mousedown',e=>{if(e.target===pad||document.pointerLockElement===pad){e.preventDefault();if(e.button===0||e.button===2)add({type:'down',button:e.button===0?'left':'right'})}});
+document.addEventListener('mouseup',e=>{if(!dragging&&(e.button===0||e.button===2))add({type:'up',button:e.button===0?'left':'right'})});
+document.addEventListener('contextmenu',e=>{if(e.target===pad||document.pointerLockElement===pad)e.preventDefault()});
+document.addEventListener('wheel',e=>{if(e.target===pad||document.pointerLockElement===pad){e.preventDefault();add({type:'scroll',y:-e.deltaY*(e.deltaMode===1?40:e.deltaMode===2?400:1)})}},{passive:false});
+for(const button of ['left','right'])$(button).onclick=()=>{add({type:'down',button});add({type:'up',button})};
+$('drag').onclick=()=>{if(!active)return;dragging=!dragging;add({type:dragging?'down':'up',button:'left'});$('drag').textContent=dragging?'End drag':'Start drag'};
+function release(){add({type:'release'});dragging=false;previous=null;$('drag').textContent='Start drag';flush()}
+window.addEventListener('blur',release);document.addEventListener('visibilitychange',()=>{if(document.hidden)release()});document.addEventListener('pointerlockchange',()=>{previous=null;if(!document.pointerLockElement)release()});
+</script></html>

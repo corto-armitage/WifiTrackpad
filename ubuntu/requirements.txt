@@ -1,0 +1,3 @@
+# Python 3.10+ on Ubuntu Linux; no third-party Python packages.
+# fcntl, struct, and all receiver imports are Python standard-library modules.
+# One-time device permissions: sudo bash setup-ubuntu.sh

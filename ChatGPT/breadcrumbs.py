@@ -55,13 +55,16 @@ def main(argv=None):
     commands = parser.add_subparsers(dest='command', required=True)
     record = commands.add_parser('record', help='Save hashes; refuses to overwrite an existing receipt')
     record.add_argument('folder', type=Path)
-    record.add_argument('receipt', type=Path)
+    record.add_argument('receipt', type=Path, nargs='?', default=Path('receipt.json'),
+                        help='Persistent JSON receipt (default: receipt.json in the current folder)')
     check = commands.add_parser('check', help='Compare with a saved receipt; exit 1 if changed')
-    check.add_argument('receipt', type=Path)
+    check.add_argument('receipt', type=Path, nargs='?', default=Path('receipt.json'),
+                       help='Receipt to read (default: receipt.json in the current folder)')
     check.add_argument('--folder', type=Path, help='Compare a copy in a different folder')
     args = parser.parse_args(argv)
     try:
         receipt = args.receipt.absolute()
+        print(f'Receipt: {receipt}')
         if args.command == 'record':
             data = inventory(args.folder, [receipt])
             # Exclusive creation protects previous evidence from accidental overwrite.
@@ -69,12 +72,22 @@ def main(argv=None):
                 json.dump(data, stream, indent=2, ensure_ascii=False)
                 stream.write('\n')
             print(f'Recorded {len(data["files"])} files. Skipped {len(data["skipped_links"])} links.')
+            for name, entry in sorted(data['files'].items()):
+                print(f'{name}\n  Saved SHA-256: {entry["sha256"]} ({entry["bytes"]} bytes)')
             return 0
         before = json.loads(receipt.read_text(encoding='utf-8'))
         if before.get('format') != 1 or not isinstance(before.get('files'), dict):
             raise ValueError('Unsupported or invalid receipt.')
         after = inventory(args.folder or before['root'], [receipt])
         result = changes(before, after)
+        for name in sorted(before['files'].keys() | after['files'].keys()):
+            old, new = before['files'].get(name), after['files'].get(name)
+            label = ('ADDED' if old is None else 'REMOVED' if new is None
+                     else 'MATCH' if old == new else 'CHANGED')
+            print(f'{label} {name}')
+            print(f'  Saved SHA-256: {old["sha256"] if old else "(not recorded)"}')
+            print(f'  Current SHA-256: {new["sha256"] if new else "(file missing)"}')
+            print(f'  Bytes saved/current: {old["bytes"] if old else "-"}/{new["bytes"] if new else "-"}')
         for kind, names in result.items():
             for name in names:
                 print(f'{kind.upper():7} {name}')

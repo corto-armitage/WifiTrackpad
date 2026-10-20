@@ -1,0 +1,3 @@
+# Only the macOS host needs an extra package. Windows, Ubuntu, and the guest
+# browser/launcher use the Python standard library.
+pyobjc-framework-Quartz>=10.0; sys_platform == "darwin"

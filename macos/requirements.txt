@@ -1,0 +1,2 @@
+# Install on the Mac receiver using Python 3.10 or newer.
+pyobjc-framework-Quartz>=10.0

@@ -1,0 +1,41 @@
+name: Publish WiFi Trackpad v1.0.0
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release-v1.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release-v1.0.0
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Ubuntu receiver with simulated input
+        working-directory: ubuntu
+        run: python3 -m unittest -v test_receiver.py
+      - name: Package receivers
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/windows dist/ubuntu
+          cp receiver.py controller.html 'Start Receiver.cmd' requirements.txt README.md LICENSE dist/windows/
+          cp ubuntu/receiver.py ubuntu/linux_mouse.py ubuntu/controller.html ubuntu/setup-ubuntu.sh ubuntu/requirements.txt ubuntu/README.md ubuntu/test_receiver.py LICENSE dist/ubuntu/
+          chmod +x dist/ubuntu/setup-ubuntu.sh
+          (cd dist/windows && zip -r ../WiFiTrackpad-Windows-v1.0.0.zip .)
+          (cd dist/ubuntu && zip -r ../WiFiTrackpad-Ubuntu-v1.0.0.zip .)
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v1.0.0 >/dev/null 2>&1; then
+            echo 'Release v1.0.0 already exists; leaving it unchanged.'
+            exit 0
+          fi
+          gh release create v1.0.0 dist/WiFiTrackpad-Windows-v1.0.0.zip dist/WiFiTrackpad-Ubuntu-v1.0.0.zip --target "$GITHUB_SHA" --title 'WiFi Trackpad v1.0.0' --notes-file RELEASE_NOTES.md
